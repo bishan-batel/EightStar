@@ -1,5 +1,10 @@
-BOARD_SIZE =3
-
+BOARD_SIZE = 3
+POSSIBLE_DELTAS = [
+	(-1, 0, "Up"),  # up
+	(1, 0, "Down"),  # down
+	(0, -1, "Left"),  # left
+	(0, 1, "Right"),  # right
+]
 
 """
 Ideal Board:
@@ -8,52 +13,53 @@ Ideal Board:
 6  7  8
 """
 
+
 def solve():
 	board = input_board(True)
 
 	print_board(board, end="-------\n")
 
+	initial_heuristic = board_heuristic(board)
+	if initial_heuristic % 2 == 1:
+		print("This board is not solvable.")
+		return
+
 	visited_states = []
-	priority = [(0,board_heuristic(board), board)]
+	priority = [
+		(0, initial_heuristic, board)
+	]
 
 	while len(priority) > 0:
-		path_cost, heuristic, curr = priority.pop(0)
+		depth, cost, board = priority.pop(0)
+		visited_states.append(board)
 
-
-		if curr in visited_states:
-			continue
-
-		if heuristic == 0:
+		if cost == 0:
 			print("Solved")
 			return
 
-		print(f"Checking pc: {path_cost}")
-		print_board(curr)
+		# get futures that has not been visited before
+		futures = list(filter(lambda f: f[0] not in visited_states, get_possible_future_states(board)))
 
-		visited_states.append(curr) 
-
-		futures = get_possible_future_states(curr)
-
-		for future_board in get_possible_future_states(curr):
-			future = ((path_cost + 1, board_heuristic(future_board), future_board))
-			future_cost = future[0] + future[1]
-
-			if len(priority) == 0:
-				priority.append(future)
-				continue
-
-			for i in range(len(priority)):
-				if future_cost < priority[i][0] + priority[i][1]:
-					priority.insert(i, future) 
-		
-		# remove the highest cost heuristic
-		# m = max(priority, key=lambda x: x[0] + x[1])
-		# priority.remove(m)
+		for future in futures:
+			add_to_priority_queue(priority, (depth + 1, board_heuristic(future[0]), future[0]), lambda f: f[0] + f[1])
+	# remove the highest cost heuristic
+	# m = max(priority, key=lambda x: x[0] + x[1])
+	# priority.remove(m)
 
 	print("Failed to solve")
 
 
-def print_board(board: [[int]], end=""):
+def add_to_priority_queue(queue: list, to_add, key=lambda x: x):
+	to_add = key(to_add)
+
+	for i in range(len(queue)):
+		if key(queue[i]) > key(to_add):
+			queue.insert(i, to_add)
+			return
+	raise "huh"
+
+
+def print_board(board, end=""):
 	# print each cell of the board in a grid
 
 	# print top bar 
@@ -64,7 +70,8 @@ def print_board(board: [[int]], end=""):
 		print()
 	print(end)
 
-def create_board() -> [[int]]:
+
+def create_board():
 	board = []
 
 	for r in range(BOARD_SIZE):
@@ -73,6 +80,7 @@ def create_board() -> [[int]]:
 			row.append(r * BOARD_SIZE + c)
 		board.append(row)
 	return board
+
 
 def clone_board(board: [[int]]) -> [[int]]:
 	copy = []
@@ -84,9 +92,10 @@ def clone_board(board: [[int]]) -> [[int]]:
 		copy.append(copied)
 	return copy
 
+
 # Gets the board from the user, or test data if asked
-def input_board(test=False) -> [[int]]:
-	if (test):
+def input_board(test=False):
+	if test:
 		return [
 			[8, 3, 2],
 			[4, 7, 1],
@@ -103,11 +112,11 @@ def input_board(test=False) -> [[int]]:
 
 def board_cell_heuristic(row: int, col: int, num: int):
 	# manhattan distance
-	target_row, target_col = num // BOARD_SIZE,  num % BOARD_SIZE
+	target_row, target_col = num // BOARD_SIZE, num % BOARD_SIZE
 	return abs(target_row - row) + abs(target_col - col)
-	return num
 
-def board_heuristic(board: [[int]]) -> int:
+
+def board_heuristic(board) -> int:
 	heuristic = 0
 
 	for row in range(BOARD_SIZE):
@@ -116,27 +125,20 @@ def board_heuristic(board: [[int]]) -> int:
 	return heuristic
 
 
-def get_hole_coord(board: [[int]]) -> (int, int):
+def get_hole_coord(board: list[list[int]]) -> (int, int):
 	for row in range(BOARD_SIZE):
 		for col in range(BOARD_SIZE):
 			if board[row][col] == 0:
 				return row, col
 
 
-def get_possible_future_states(board: [[int]]):
+def get_possible_future_states(board):
 	states = []
 
 	# get 0 number row & column
 	hole_row, hole_col = get_hole_coord(board)
 
-	position_deltas = [
-		(-1, 0), # up
-		(1, 0), # down
-		(0, -1), # left
-		(0, 1), # right
-	]
-
-	for dx, dy in position_deltas:
+	for dx, dy, name in POSSIBLE_DELTAS:
 		row = hole_row + dx
 		col = hole_col + dy
 
@@ -149,8 +151,9 @@ def get_possible_future_states(board: [[int]]):
 			clone[hole_row][hole_col] = clone[row][col]
 			clone[row][col] = 0
 			# add to states
-			states.append(clone)
-		
+			states.append((clone, name))
+
 	return states
+
 
 solve()
