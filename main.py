@@ -1,12 +1,21 @@
-from time import time
+from enum import Enum
 
 BOARD_SIZE = 3
+BOARD_SIZE_2 = BOARD_SIZE ** 2
 POSSIBLE_DELTAS = [
 	(-1, 0, "U"),  # up
 	(1, 0, "D"),  # down
 	(0, -1, "L"),  # left
 	(0, 1, "R"),  # right
 ]
+
+
+class BoardMoves(Enum):
+	UP = (-1, 0)
+	DOWN = (1, 0)
+	LEFT = (0, -1)
+	RIGHT = (0, 1)
+
 
 """
 Ideal Board:
@@ -26,7 +35,7 @@ def solve():
 		print("This board is not solvable.")
 		return
 
-	visited_states = {}
+	visited_states = set("")
 
 	priority = [
 		(0, initial_heuristic, board, "")
@@ -35,35 +44,52 @@ def solve():
 	while len(priority) > 0:
 		depth, cost, board, path = priority.pop(0)
 
-		visited_states[board_hash(board)] = True
+		if cost == 0:
+			print_board_path(path)
+			print("Solved")
+			return
+
+		visited_states.add(board_hash(board))
+
 		# visited_states.append(board)
 
 		# get futures that has not been visited before
 		future_depth = depth + 1
 		for future in get_possible_future_states(board):
-			if board_hash(future[0]) in visited_states:
-				continue
 			# print(priority)
 			heuristic = board_heuristic(future[0])
 
-			if heuristic == 0:
-				print_board_path(path)
-				print("Solved")
-				return
+			if board_hash(future[0]) in visited_states:
+				continue
 
-			to_add = (future_depth, heuristic, future[0], f"{path}{future[1]}")
-			cost = to_add[0] + to_add[1]
+			# redefine future to package in depth, cost, path, as well as board
+			future = (future_depth, heuristic, future[0], f"{path}{future[1]}")
 
-			for i, ele in enumerate(priority):
-				if ele[0] + ele[1] > cost:
-					priority.insert(i, to_add)
+			# cache the cost
+			cost = future[0] + future[1]
+
+			# for i, ele in enumerate(priority):
+			# 	if ele[0] + ele[1] > cost:
+			# 		priority.insert(i, future)
+			# 		break
+			# else:
+			# 	priority.append(future)
+			left = 0
+			right = len(priority) - 1
+			mid = 0
+
+			while left < right:
+				mid = (left + right) // 2
+				mid_val = priority[mid]
+				mid_cost = mid_val[0] + mid_val[1]
+				if cost > mid_cost:
+					left = mid + 1
+				elif cost < mid_cost:
+					right = mid - 1
+				else:
 					break
-			else:
-				priority.append(to_add)
 
-	# if len(priority) > 0:
-	# 	m = max(priority, key=lambda x: x[0] + x[1])
-	# 	priority.remove(m)
+			priority.insert(mid, future)
 
 	print("Failed to solve")
 
@@ -105,7 +131,7 @@ def create_board():
 	return board
 
 
-def clone_board(board: [[int]]) -> [[int]]:
+def clone_board(board):
 	copy = []
 
 	for row in board:
@@ -181,30 +207,30 @@ def get_possible_future_states(board):
 		clone = clone_board(board)
 		clone[hole_row][hole_col] = clone[hole_row - 1][hole_col]
 		clone[hole_row - 1][hole_col] = 0
-		states.append((clone, "L"))
+		states.append((clone, BoardMoves.LEFT))
 
 	if hole_row < BOARD_SIZE - 1:
 		clone = clone_board(board)
 		clone[hole_row][hole_col] = clone[hole_row + 1][hole_col]
 		clone[hole_row + 1][hole_col] = 0
-		states.append((clone, "R"))
+		states.append((clone, BoardMoves.RIGHT))
 
 	if hole_col > 0:
 		clone = clone_board(board)
 		clone[hole_row][hole_col] = clone[hole_row][hole_col - 1]
 		clone[hole_row][hole_col - 1] = 0
-		states.append((clone, "U"))
+		states.append((clone, BoardMoves.UP))
 
 	if hole_col < BOARD_SIZE - 1:
 		clone = clone_board(board)
 		clone[hole_row][hole_col] = clone[hole_row][hole_col + 1]
 		clone[hole_row][hole_col + 1] = 0
-		states.append((clone, "D"))
+		states.append((clone, BoardMoves.DOWN))
 
 	return states
 
 
-def board_hash(board: list[list[int]]):
+def board_hash(board):
 	check_sum = ""
 	for row in board:
 		for cell in row:
@@ -212,4 +238,5 @@ def board_hash(board: list[list[int]]):
 	return check_sum
 
 
-solve()
+if __name__ == "__main__":
+	solve()
